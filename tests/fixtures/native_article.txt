@@ -1,0 +1,4 @@
+Attackers exploited a critical flaw in the VPN appliance to gain initial access.
+The vendor released a patch on Tuesday and urged customers to update immediately.
+Researchers at ExampleLabs attributed the campaign to a financially motivated group.
+Read more.

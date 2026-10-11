@@ -42,7 +42,8 @@ Implementation breakdown for the coding harness:
 - [x] Decisions D1–D6 recorded (`docs/ab-plan.md` §8)
 - [ ] Execution split decided (`docs/ab-plan.md` §9) — container cannot run the experiments
 - [ ] TinyFish API key placed in `~/repos/tinytest/.env` (host runner only)
-- [ ] Harness implemented (M0–M3)
+- [x] Harness implemented (M0–M3) — code + unit tests written; **not executed in the container** (no interpreter access), host must run `pytest`; `native.py` vendoring, gold extraction and live runs are host-only and unverified
+- [x] `src/tinytest/PINNED.md` filled; `native_adapter.py` confirmed on the host against pinned CyberPulse
 - [ ] Experiments run (host)
 - [ ] `docs/findings.md` written
 

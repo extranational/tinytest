@@ -1,0 +1,18 @@
+{
+  "results": [
+    {
+      "url": "https://news.example.com/acme-vpn",
+      "final_url": "https://news.example.com/acme-vpn",
+      "title": "VPN flaw exploited",
+      "description": "d",
+      "language": "en",
+      "text": "<article><h1>VPN flaw exploited</h1><p>Attackers exploited a critical flaw in the VPN appliance to gain initial access.</p></article>",
+      "author": "A. Writer",
+      "published_date": "2026-10-10T10:16:17-04:00",
+      "links": ["https://www.acme-sec.example/blog/vpn-flaw", "https://other.example.org/x"],
+      "latency_ms": 867.4,
+      "format": "html"
+    }
+  ],
+  "errors": []
+}

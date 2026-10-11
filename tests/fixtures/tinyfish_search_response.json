@@ -1,0 +1,10 @@
+{
+  "query": "Acme VPN flaw exploited",
+  "total_results": 4,
+  "results": [
+    {"position": 1, "site_name": "a.example", "title": "A", "snippet": "sa", "url": "https://a.example/1"},
+    {"position": 2, "site_name": "b.example", "title": "B", "snippet": "sb", "url": "https://b.example/2"},
+    {"position": 3, "site_name": "acme-sec.example", "title": "C", "snippet": "sc", "url": "https://www.acme-sec.example/blog/vpn-flaw/?utm_source=tw"},
+    {"position": 4, "site_name": "d.example", "title": "D", "snippet": "sd", "url": "https://d.example/4"}
+  ]
+}

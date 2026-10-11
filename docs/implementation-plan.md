@@ -13,14 +13,12 @@ Repo: `~/repos/tinytest` (uv-managed; run via `.venv/bin/python` or
 
 1. **Never modify `~/repos/cyberpulse` or `~/repos/rollout`.** They are read-only
    inputs. No edits, no commits, no config changes, no new files in either tree.
-2. The native extraction baseline is **generated, not committed**:
-   `scripts/vendor_native.py` extracts the routines verbatim from CyberPulse at the
-   SHA recorded in `src/tinytest/PINNED.md` and writes `src/tinytest/native.py`.
-   That output file is **gitignored** — this repo is public and it contains
-   CyberPulse's own pipeline code. Never commit it. The orchestrator runs the
-   generator on the host (the container cannot read CyberPulse). Do not `import`
-   CyberPulse's modules at runtime — the baseline must be reproducible after
-   CyberPulse has moved on.
+2. The native baseline is a **host adapter**, `src/tinytest/native_adapter.py`
+   (committed — it is our code, and no CyberPulse source is copied into this public
+   repo). It imports CyberPulse from a checkout (`CYBERPULSE_PATH`) pinned to the SHA in
+   `src/tinytest/PINNED.md` and refuses to run if the checkout's HEAD does not match
+   (see `docs/host-answers.md`). It runs only on the host; the container cannot read
+   CyberPulse.
 3. **There is no network in the container, and you must not attempt to install
    dependencies.** Write the TinyFish/Brave clients fully, but never call them from
    inside the container — the orchestrator runs every live call on the host. The
@@ -47,7 +45,7 @@ Repo: `~/repos/tinytest` (uv-managed; run via `.venv/bin/python` or
 src/tinytest/
   __init__.py
   config.py        # env loading, paths, constants, thresholds
-  native.py        # VENDORED Rollout extraction routine (pinned)
+  native_adapter.py # host adapter: imports pinned CyberPulse, emits one JSON record per URL
   tinyfish.py      # TinyFish Search + Fetch clients (httpx), rate limiting, retry
   brave.py         # Brave Search client (native search arm)
   gold.py          # build/freeze the gold sets from Rollout's published output
@@ -73,11 +71,9 @@ tests/
 2. Record CyberPulse's current `git rev-parse HEAD` and the sha256 of
    `src/cyberpulse/pipeline/enrich.py` + `src/cyberpulse/pipeline/websearch.py` into
    `src/tinytest/PINNED.md`.
-3. Vendor into `native.py`, verbatim: `fetch_readable`'s fetch+extract path
-   (`httpx` GET, content-type gate, `_text_and_links`, `PAGE_CHARS` truncate) and
-   `websearch.search` (Brave request params). Strip only the `screen` call and the
-   telemetry hooks; leave everything else byte-identical so the baseline is honest.
-   Note every stripped line in a module docstring.
+3. `native_adapter.py` (replaces the earlier vendoring plan): own `httpx` GET, the real
+   `_text_and_links`, `PAGE_CHARS` truncation, screening disabled via
+   `cfg.screen["enabled"] = False`. Brave request params live in `config.py`.
 4. `gold.py` builds the gold set from `~/repos/cyberpulse/state/cyberpulse.db`
    (`story_links`, `stories`) cross-checked against
    `~/repos/vrsweb/content/cyber-hose/*.mdx` frontmatter and body links; writes

@@ -1,0 +1,12 @@
+CREATE TABLE stories (fingerprint TEXT PRIMARY KEY, headline TEXT, cve_ids TEXT DEFAULT '[]');
+CREATE TABLE story_links (fingerprint TEXT, url TEXT, role TEXT, first_published TEXT);
+INSERT INTO stories VALUES ('f1', 'Acme VPN-flaw exploited', '["CVE-2026-0001","CVE-2026-0002"]');
+INSERT INTO stories (fingerprint, headline) VALUES ('f2', 'Big Corp breach');
+INSERT INTO stories VALUES ('f3', 'Repo-malware wave', NULL);
+INSERT INTO stories VALUES ('f4', 'Story without links', '[]');
+INSERT INTO story_links VALUES ('f1', 'https://www.acme-sec.example/blog/vpn-flaw?utm_source=x', 'original', '2026-08-01T10:00:00Z');
+INSERT INTO story_links VALUES ('f1', 'https://news.example.com/acme-vpn', 'coverage', '2026-08-01T10:00:00Z');
+INSERT INTO story_links VALUES ('f2', 'https://corp-report.example.org/breach', 'original', '2026-09-02T09:00:00Z');
+INSERT INTO story_links VALUES ('f2', 'https://reddit.com/r/netsec/abc', 'seed', '2026-09-02T09:00:00Z');
+INSERT INTO story_links VALUES ('f3', 'https://github.com/o/r/issues/1', 'original', '2026-09-03T09:00:00Z');
+INSERT INTO story_links VALUES ('f3', 'https://news.example.com/repo', 'coverage', '2026-09-03T09:00:00Z');

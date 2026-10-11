@@ -39,8 +39,19 @@ From `~/repos/cyberpulse/state/cyberpulse.db` and `~/repos/vrsweb/content/cyber-
 - stories in ledger: **5,221**
 - published links (`story_links`): **6,183** rows — 5,233 `coverage`, 713 `original`,
   237 `seed`
-- distinct published URLs: **6,152**; distinct hosts: **475**
+- distinct published URLs: **6,150** (normalised; 6,152 raw — CyberPulse keys URLs by
+  `dedupe.item_key`, which lowercases and drops fragments/trailing slashes/`utm_*`/`ref`)
+- distinct hosts: **479** (normalised)
+- stories in `stories` table: 5,221; distinct fingerprints present in `story_links`:
+  5,239 — **18 fingerprints are orphans** (no `stories` row). They carry no headline and
+  so no search query; they are excluded from the search gold set (see §3.1) but kept in
+  the fetch gold set.
 - item window in DB: 2026-07-15 → 2026-10-10 (23,589 items; retention 90 days)
+- search-eligible after the §3.1 filter: **618 links / 610 stories** (≥150 available)
+
+> The distinct-URL and host figures above are the *normalised* values, which supersede
+> the raw counts first written here. `tinytest gold` prints both and flags the
+> difference, so a future mismatch is visible rather than silent.
 
 Host concentration (top): **cve.threatint.com 2,517 (41% of all links)**,
 cybersecuritynews.com 457, reddit.com 268, securityboulevard.com 237, arxiv.org 236,
