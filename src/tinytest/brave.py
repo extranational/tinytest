@@ -35,7 +35,7 @@ class BraveClient:
         count: int = config.BRAVE_COUNT,
         freshness: str | None = config.BRAVE_FRESHNESS,
     ):
-        self._key = api_key if api_key is not None else config.require_env("BRAVE_API_KEY")
+        self._key = api_key if api_key is not None else config.brave_api_key()
         self._http = http if http is not None else default_http()
         self._sleep = sleep
         self._limiter = limiter or RateLimiter(min_interval=config.BRAVE_MIN_INTERVAL_S)

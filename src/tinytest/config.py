@@ -44,6 +44,23 @@ def require_env(name: str) -> str:
     return value
 
 
+# CyberPulse names this key BRAVE_SEARCH_API_KEY (see its pipeline/websearch.py); the
+# harness first expected BRAVE_API_KEY, which silently aborted the search experiment on
+# the host. Accept either name so the harness works against the real environment.
+BRAVE_KEY_NAMES = ("BRAVE_SEARCH_API_KEY", "BRAVE_API_KEY")
+
+
+def brave_api_key() -> str:
+    load_env()
+    for name in BRAVE_KEY_NAMES:
+        value = os.environ.get(name)
+        if value:
+            return value
+    raise RuntimeError(
+        f"no Brave key: set {' or '.join(BRAVE_KEY_NAMES)} (in {ENV_PATH} or the env)"
+    )
+
+
 # --- gold-set inputs: re-point at rollout (or any sibling) by env change only ---------
 GOLD_DB = Path(
     os.environ.get("GOLD_DB", Path.home() / "repos/cyberpulse/state/cyberpulse.db")
