@@ -135,6 +135,10 @@ A coherent combination: **TinySearch as the search provider, `fetch_readable` re
 for pages it wins, TinyFetch as the fallback where native 403s or times out** — the
 search half is a clean win, the fetch half is a bounded repair.
 
+> **Replicated on Rollout** (2026-10-11): see `docs/rollout-pilot.md`. Same two effects,
+> same sign, same verdicts — TinySearch 1.58× recall@5 (1.32× under a strict feed-native
+> filter), TinyFetch fallback-only. Not an artefact of the CyberPulse corpus.
+
 ### Reproduction
 
 One harness, two corpora, selected by `TINYTEST_CORPUS` (inputs *and* data dir):
