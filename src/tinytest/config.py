@@ -10,7 +10,27 @@ import os
 from pathlib import Path
 
 ROOT = Path(os.environ.get("TINYTEST_ROOT", Path(__file__).resolve().parents[2]))
-DATA_DIR = ROOT / "data"
+
+# --- corpus switch --------------------------------------------------------------------
+# One harness, two corpora. `TINYTEST_CORPUS` selects the published-output inputs (DB,
+# MDX content dir, native checkout) AND the data directory, so a run against Rollout
+# never touches CyberPulse's frozen gold sets, raw responses or result tables.
+CORPUS = os.environ.get("TINYTEST_CORPUS", "cyberpulse")
+_CORPORA = {
+    "cyberpulse": {
+        "db": "repos/cyberpulse/state/cyberpulse.db",
+        "content": "repos/vrsweb/content/cyber-hose",
+        "checkout": "repos/cyberpulse",
+    },
+    "rollout": {
+        "db": "repos/rollout/state/cyberpulse.db",
+        "content": "repos/vrsweb/content/rollout",
+        "checkout": "repos/rollout",
+    },
+}
+_CORPUS = _CORPORA.get(CORPUS, _CORPORA["cyberpulse"])
+
+DATA_DIR = Path(os.environ.get("TINYTEST_DATA_DIR", ROOT / "data" / CORPUS))
 RAW_DIR = DATA_DIR / "raw"
 RAW_FETCH_DIR = RAW_DIR / "fetch"
 RAW_SEARCH_DIR = RAW_DIR / "search"
@@ -61,24 +81,27 @@ def brave_api_key() -> str:
     )
 
 
-# --- gold-set inputs: re-point at rollout (or any sibling) by env change only ---------
-GOLD_DB = Path(
-    os.environ.get("GOLD_DB", Path.home() / "repos/cyberpulse/state/cyberpulse.db")
-)
-GOLD_CONTENT_DIR = Path(
-    os.environ.get("GOLD_CONTENT_DIR", Path.home() / "repos/vrsweb/content/cyber-hose")
-)
+# --- gold-set inputs: selected by `TINYTEST_CORPUS`; each still overridable by env ------
+GOLD_DB = Path(os.environ.get("GOLD_DB", Path.home() / _CORPUS["db"]))
+GOLD_CONTENT_DIR = Path(os.environ.get("GOLD_CONTENT_DIR", Path.home() / _CORPUS["content"]))
+NATIVE_CHECKOUT = Path(os.environ.get("NATIVE_CHECKOUT", Path.home() / _CORPUS["checkout"]))
 
-# Numbers from docs/ab-plan.md section 2; `tinytest gold` reports any discrepancy.
-EXPECTED_GOLD = {
-    "links": 6183,
-    "role:coverage": 5233,
-    "role:original": 713,
-    "role:seed": 237,
-    "distinct_urls": 6150,
-    "hosts": 479,
-    "stories": 5221,
+# Numbers from docs/ab-plan.md section 2 (CyberPulse, measured 2026-10-10); `tinytest gold`
+# reports any discrepancy. Rollout's ledger is live (crons republish 3x/day), so no frozen
+# expectation is recorded there: `gold` prints the measured counts for the record instead.
+_EXPECTED_GOLD = {
+    "cyberpulse": {
+        "links": 6183,
+        "role:coverage": 5233,
+        "role:original": 713,
+        "role:seed": 237,
+        "distinct_urls": 6150,
+        "hosts": 479,
+        "stories": 5221,
+    },
+    "rollout": {},
 }
+EXPECTED_GOLD = _EXPECTED_GOLD.get(CORPUS, {})
 
 # Feed-native hosts: arrive via dedicated fetchers, not web search (ab-plan 3.1).
 FEED_NATIVE_HOSTS = frozenset(

@@ -137,14 +137,20 @@ search half is a clean win, the fetch half is a bounded repair.
 
 ### Reproduction
 
+One harness, two corpora, selected by `TINYTEST_CORPUS` (inputs *and* data dir):
+
 ```
 set -a; . ~/.hermes/.env; . ~/repos/cyberpulse/.env; set +a
-export CYBERPULSE_PATH=~/repos/cyberpulse PYTHONPATH=src
-python -m tinytest gold        # freeze the corpus
+export TINYTEST_CORPUS=cyberpulse PYTHONPATH=src
+python -m tinytest gold        # freeze the corpus -> data/cyberpulse/
 python -m tinytest fetch-ab    # ~200 native + 200 TinyFish fetches
 python -m tinytest search-ab   # 150 stories x 2 arms x 3 reps
 python -m tinytest analyze     # tables from stored raw responses only
 ```
 
-`data/results/*` regenerates byte-identically from `data/raw/`; no metric is
-transcribed by hand.
+For Rollout: `TINYTEST_CORPUS=rollout NATIVE_CHECKOUT=~/repos/rollout` and run the
+harness with `~/repos/rollout/.venv/bin/python` (the adapter imports that checkout's
+`cyberpulse` package; Rollout keeps the module name). Results land in `data/rollout/`.
+
+`data/<corpus>/results/*` regenerates byte-identically from `data/<corpus>/raw/`; no
+metric is transcribed by hand.

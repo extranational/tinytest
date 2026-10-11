@@ -17,6 +17,7 @@ def _cmd_gold(args) -> int:
     from tinytest import gold
 
     summary = gold.build(Path(args.db), Path(args.content_dir), config.DATA_DIR)
+    print(f"corpus={config.CORPUS} db={args.db} content_dir={args.content_dir}")
     print(f"links={summary['links']} distinct_urls={summary['distinct_urls']} "
           f"hosts={summary['hosts']} stories_with_links={summary['stories_with_links']} "
           f"stories_in_ledger={summary['stories_in_ledger']}")
@@ -31,8 +32,10 @@ def _cmd_gold(args) -> int:
         print("DISCREPANCIES vs docs/ab-plan.md section 2 (explain these):")
         for line in summary["discrepancies_vs_ab_plan"]:
             print("  -", line)
-    else:
+    elif config.EXPECTED_GOLD:
         print("counts match docs/ab-plan.md section 2")
+    else:
+        print(f"no frozen §2 expectation recorded for corpus '{config.CORPUS}'")
     return 0
 
 

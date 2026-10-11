@@ -1,11 +1,14 @@
-"""Native fetch arm: CyberPulse's real extraction, imported from a pinned checkout.
+"""Native fetch arm: the pipeline's real extraction, imported from a pinned checkout.
 
-    CYBERPULSE_PATH=~/repos/cyberpulse python -m tinytest.native_adapter <url>
+    TINYTEST_CORPUS=rollout NATIVE_CHECKOUT=~/repos/rollout python -m tinytest.native_adapter <url>
 
-Prints exactly one JSON object on stdout. Host-only: needs CyberPulse's dependencies and
-network. Refuses to run (exit 2, message on stderr) unless the checkout's
-``git rev-parse HEAD`` starts with ``cyberpulse_head`` in PINNED.md. This module contains
-no CyberPulse source; it imports it at runtime from the checkout.
+Prints exactly one JSON object on stdout. Host-only: needs the checkout's dependencies
+and network. Refuses to run (exit 2, message on stderr) unless the checkout's
+``git rev-parse HEAD`` starts with ``<corpus>_head`` in PINNED.md. The checkout defaults
+to ``NATIVE_CHECKOUT`` (else ``CYBERPULSE_PATH``), or ``config.NATIVE_CHECKOUT`` for the
+configured corpus; the package is imported as ``cyberpulse`` in either corpus (Rollout is
+a re-skin of the same engine and keeps the module name). This module contains no
+pipeline source; it imports it at runtime from the checkout.
 
 Design (docs/host-answers.md): screening disabled (D3); its own httpx GET so ``status``
 and ``content_type`` survive (``fetch_readable`` swallows failures and returns None);
@@ -35,11 +38,18 @@ PINNED_MD = Path(__file__).with_name("PINNED.md")
 
 
 def default_checkout() -> Path:
-    return Path(os.environ.get("CYBERPULSE_PATH", Path.home() / "repos/cyberpulse")).expanduser()
+    override = os.environ.get("NATIVE_CHECKOUT") or os.environ.get("CYBERPULSE_PATH")
+    if override:
+        return Path(override).expanduser()
+    from tinytest import config
+
+    return Path(config.NATIVE_CHECKOUT).expanduser()
 
 
-def pinned_head(path: Path = PINNED_MD) -> str | None:
-    m = re.search(r"^\s*[-*]?\s*`?cyberpulse_head`?\s*:\s*`?([0-9a-fA-F]{7,40})`?\s*$",
+def pinned_head(path: Path = PINNED_MD, corpus: str | None = None) -> str | None:
+    """Pinned HEAD for ``corpus`` (default: the configured corpus, else cyberpulse)."""
+    name = corpus or os.environ.get("TINYTEST_CORPUS", "cyberpulse")
+    m = re.search(rf"^\s*[-*]?\s*`?{re.escape(name)}_head`?\s*:\s*`?([0-9a-fA-F]{{7,40}})`?\s*$",
                   path.read_text(encoding="utf-8"), re.MULTILINE)
     return m.group(1).lower() if m else None
 
