@@ -13,13 +13,22 @@ Repo: `~/repos/tinytest` (uv-managed; run via `.venv/bin/python` or
 
 1. **Never modify `~/repos/cyberpulse` or `~/repos/rollout`.** They are read-only
    inputs. No edits, no commits, no config changes, no new files in either tree.
-2. The native extraction baseline is **vendored** into `src/tinytest/native.py`,
-   copied verbatim from CyberPulse at the pinned SHA recorded in
-   `src/tinytest/PINNED.md`. Do not `import` CyberPulse's modules at runtime — the
-   baseline must be reproducible after CyberPulse has moved on.
-3. No network calls other than: the two TinyFish endpoints, the Brave endpoint,
-   and the target URLs being fetched. No package installs beyond
-   `pyproject.toml`'s declared dependencies.
+2. The native extraction baseline is **generated, not committed**:
+   `scripts/vendor_native.py` extracts the routines verbatim from CyberPulse at the
+   SHA recorded in `src/tinytest/PINNED.md` and writes `src/tinytest/native.py`.
+   That output file is **gitignored** — this repo is public and it contains
+   CyberPulse's own pipeline code. Never commit it. The orchestrator runs the
+   generator on the host (the container cannot read CyberPulse). Do not `import`
+   CyberPulse's modules at runtime — the baseline must be reproducible after
+   CyberPulse has moved on.
+3. **There is no network in the container, and you must not attempt to install
+   dependencies.** Write the TinyFish/Brave clients fully, but never call them from
+   inside the container — the orchestrator runs every live call on the host. The
+   `pyproject.toml` dependencies (`httpx`, `beautifulsoup4`, `lxml`, `python-dotenv`)
+   are declared for the host runner; a policy denial on an install or a probe command
+   means *use the corresponding tool*, not that the environment is broken. In-container
+   verification is limited to what stdlib Python can execute (`python -m compileall`,
+   AST checks, stdlib-only tests); the orchestrator runs `pytest` on the host.
 4. Secrets only via `.env` (gitignored). Never write a key into a tracked file or
    a log.
 5. `data/` is gitignored and holds gold sets, raw responses and results. Raw
@@ -125,20 +134,23 @@ Resolves the one empirical unknown that gates the fetch design.
 1. `fetch_ab.py`: draw the host-stratified N=200 sample deterministic from the seed
    in `config.py`; for each URL call both arms; persist raw responses under
    `data/raw/fetch/<sha1>.{native,tinyfish}`.
-2. `metrics.py`: `signal_ratio`, `extract_chars`, `link_count`,
-   `anchor_sentence_coverage` — computed identically from each arm's stored raw
-   output.
+2. `metrics.py`: `content_overlap` (native-sentence recall in the TinyFish text),
+   `extract_chars`, `link_url_count`, `published_date_present`, `failure_class` —
+   computed identically from each arm's stored raw output. **Do not implement
+   `signal_ratio`**: TinyFish returns only boilerplate-stripped content, so
+   `body_text` does not exist on that arm (see `docs/tinyfish-probe.md`).
 3. Respect TinyFish limits: ≤10 URLs/request, ≤150 URLs/min, ≤1,000 URLs/day.
    Log any 429 and back off.
-4. Compare per-host success rate against Rollout's recorded `fetch_failures`
-   (130 runs) as the native baseline; write `data/results/fetch.csv`.
+4. Compare per-host success rate against CyberPulse's recorded `fetch_failures`
+   (query the `runs` summaries directly; count them, don't assume) as the native
+   baseline; write `data/results/fetch.csv`.
 
 **Acceptance**
 
 - 200 URLs attempted, both arms, zero unhandled exceptions.
 - `data/results/fetch.csv` has one row per URL with both arms' metrics and a
   failure class.
-- A unit test proves `signal_ratio` on fixture HTML gives the hand-computed value,
+- A unit test proves `content_overlap` on fixture HTML gives the hand-computed value,
   and that a non-HTML response is classified, not crashed on.
 
 ---

@@ -129,13 +129,33 @@ native arm. This does not invalidate the test; it raises the bar: TinySearch mus
 - `tinyfish` — `POST https://api.fetch.tinyfish.ai`,
   `{"urls":[…], "format":"html", "links":true, "ttl":0}`.
 
-**Why `format: "html"`, not `markdown`.** CyberPulse's `PageLink` carries
-`(url, anchor, sentence, page_sentences)`, feeding the R5 corroboration that produces
-`original_source_url` — 713 of 6,183 published links are `original`. TinyFetch's
-`links: true` returns **bare `<a href>` URLs only**: no anchor text, no sentence
-context. Semantic HTML lets the harness re-run the *same local link-extraction* over
-TinyFish's rendered HTML, preserving the citation channel and keeping the arms
-comparable. *(Confirmed in M1 with one live call before implementation proceeds.)*
+**Citation channel: FAIL, by construction (measured 2026-10-10, `docs/tinyfish-probe.md`).**
+CyberPulse's `PageLink` carries `(url, anchor, sentence, page_sentences)`, feeding the
+R5 corroboration that produces `original_source_url` — 713 of 6,183 published links are
+`original`. A live probe settled the question the wrong way:
+
+- TinyFetch `links: true` returns **142 bare URLs** — strings only, no anchor, no
+  position, no sentence.
+- TinyFetch `format: "html"` returns **semantic** HTML, not the source DOM: `<a` count
+  **0**, `href` count **0** (only `article, h1, h6, li, p, ul` survive).
+
+So anchor text and sentence context are **not recoverable**, and the originally planned
+mitigation — re-extracting links from TinyFish's rendered HTML — is impossible.
+TinyFetch **cannot** be a drop-in replacement for `fetch_readable`. This is recorded as
+a **binary gate that TinyFish fails**, not a metric to be traded off.
+
+**Metric substitution.** The planned **signal ratio** (`main_text / body_text`) is
+**undefined for the TinyFish arm**: TinyFish returns only boilerplate-stripped
+extraction, so there is no `body_text` to divide by. Replace it with **content overlap
+with the native arm on the same page** — the fraction of the native arm's extracted
+sentences present in TinyFish's text — plus absolute extracted characters. That is
+well-defined for both arms and measures directly whether TinyFish loses content the
+pipeline needs.
+
+**What the probe found in TinyFish's favour** (recorded for completeness): 200 OK,
+867 ms server-reported latency on a static article, and `author` + `published_date`
+returned directly — which the native path only obtains by parsing JSON-LD. Useful on
+the `max_source_age_days: 14` recency gate.
 
 **Screening excluded from both arms (D3 approved).** `fetch_readable` runs SafePrompt
 on every page (up to 8,000 chars of third-party text egressed to a hosted API, 600s/run
@@ -155,23 +175,27 @@ quota, add ~5s/page latency noise, and confound the extraction comparison.
 
 - success/failure, with failure class (timeout, DNS, HTTP status, anti-bot, empty body,
   non-HTML)
-- extracted characters; **signal ratio** = `len(main_text)/len(body_text)`, computed
-  identically for both arms from the stored raw response
-- outbound links recovered; **anchor-text and sentence-context coverage** (does the arm
-  preserve enough for R5 corroboration)
+- extracted characters; **content overlap with the native arm** (fraction of native's
+  extracted sentences present in TinyFish's text), computed identically for both arms
+  from the stored raw response
+- outbound links recovered as **URLs** (the `links` list) — the anchor/sentence channel
+  is separately gated, above
 - latency p50 / p90 / p95
+- `published_date` availability (native must parse JSON-LD; TinyFish returns it)
 - per-host success rate vs the native `fetch_failures` baseline in CyberPulse's
   `runs` summaries
 
-**Decision rule.** Adopt TinyFetch for the fetch seam iff **all** hold:
-1. success rate ≥ native (no host-class regression beyond noise);
-2. median signal ratio > native;
-3. anchor/sentence preservation sufficient that the citation channel still functions;
-4. latency within the enrichment run's practical budget (native timeout 10s; TinyFish
-   advertises p50 ~12s, p95 ~30s — a real risk to flag).
+**Decision rule (revised — fallback-only).** The drop-in-replacement outcome is closed:
+the citation channel fails by construction. TinyFetch is adoptable only as a
+**host-scoped fallback**, considered for hosts where native `fetch_readable` fails
+(403 / bot-block / timeout), and only if:
+1. its success rate on the failing hosts is materially above native's; and
+2. content overlap shows it did not lose the substance of the page; and
+3. the pipeline can tolerate a fetch-without-citations path there — the source-first
+   attribution simply does not exist on those pages.
 
-Otherwise keep native, or adopt TinyFish narrowly as a **fallback for hosts where
-native 403s** (bot-blocked publishers) — a smaller, safer win.
+If (3) is unacceptable, the verdict is **reject for fetch entirely**, and the useful
+residue is the Search result alone.
 
 ---
 
@@ -251,24 +275,18 @@ tier), but not a drop-in replacement.
 
 ---
 
-## 9. Execution split (outstanding decision)
+## 9. Execution split (decided: option A)
 
 The claude-harness container is egress-allowlisted to `api.anthropic.com` **only**
-(verified: `example.com` → 403 filtered; no proxy → DNS failure). It therefore
-**cannot** call TinyFish, Brave, or any target URL, and — with only the project dir
-mounted — cannot read CyberPulse's DB or `~/repos/vrsweb`.
+(verified: `example.com` → 403 filtered; no proxy → DNS failure). It cannot call
+TinyFish, Brave, or target URLs, and with only the project dir mounted it cannot read
+CyberPulse's DB or `~/repos/vrsweb`.
 
-Consequence: the container can **write and unit-test** the harness; it cannot **run**
-the experiments. Two options:
+**Decided (A):** the harness writes **code + unit tests** in the container; the **host**
+(Hermes) extracts the gold set, runs the M1 probe (done) and both experiments, and
+writes `docs/findings.md`. Same code, invoked outside the container.
 
-- **(A) Recommended.** The harness codes and tests in the container against committed
-  fixtures; the **host** (Hermes) extracts the gold set and runs the live probes and
-  both experiments, where egress and the key already exist. No harness code changes —
-  only *where* the network calls execute.
-- **(B)** Widen the container's egress allowlist to the TinyFish/Brave APIs **and**
-  arbitrary target URLs, and mount the CyberPulse DB read-only. Rejected as a default:
-  arbitrary-URL egress plus host mounts is precisely the blast radius the container
-  exists to remove.
-
-Awaiting Brett's choice. Under (A) the harness deliverable is code + tests + a
-dry-run, and I run the experiments and write `docs/findings.md`.
+Consequence for the brief: the harness makes **no live API calls**, attempts **no
+dependency installs** (no network; policy-denied), and its own verification is limited
+to what the image's stdlib Python can execute. The orchestrator runs `pytest` on the
+host.
