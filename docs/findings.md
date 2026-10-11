@@ -83,13 +83,68 @@ only native's body sentences, which the native output does not let us isolate.
 
 ---
 
-## Experiment 2 — Search: *pending*
+## Experiment 2 — Search: **TinySearch beats Brave, by more than 2×**
 
-The first run aborted on a harness defect: the Brave client required `BRAVE_API_KEY`
-while CyberPulse's environment names it `BRAVE_SEARCH_API_KEY`. Fixed at landing to
-accept either. Full run (150 stories × 2 arms × 3 reps) in progress.
+150 stories × 2 arms × 3 reps = 900 requests, **900 ok, 0 errors, 0 rate-limit
+retries**. Identical query string per story, built exactly as `backfill._query_for`
+does. Brave ran at its live `count=5`; TinySearch returned 7–10 results (mean 9.8).
+Gold bar: the URL CyberPulse actually published (1 URL for 147 stories, 2 for 3).
 
-Decision rule (ab-plan §5): TinySearch is a candidate replacement if recall@5 ≥ Brave's,
-subject to the home-field-bias caveat (Brave produced the candidate pool CyberPulse
-historically chose from). Recall@10 is reported for TinyFish only and is **not
-comparable** — Brave was run at its live `count=5`.
+| Metric | Brave (native) | TinySearch |
+|---|---|---|
+| **recall@5** | **13.3%** (60/450) | **28.7%** (129/450) |
+| **MRR** | 0.0896 | **0.1973** |
+| hits at rank 1 | possible (best rank 1) | possible (best rank 1) |
+| query error rate | 0.0% | 0.0% |
+| recall@10 | *not comparable* (never asked for 10) | 28.7% |
+
+**Variance across the 3 reps: zero, for every metric on both arms** (stdev 0.0). Search
+is effectively deterministic over this corpus and window — the 3 reps cost nothing and
+confirmed it rather than being discarded.
+
+**Decision rule (ab-plan §5): recall@5 ≥ Brave's → PASS, decisively.** 2.15× the recall
+and 2.20× the MRR. This survives the home-field-bias caveat in §3.2 in the strongest
+way: Brave produced the candidate pool CyberPulse historically chose *from*, so the gold
+URL is partly Brave's own selection, and TinySearch still more than doubles it. A
+replacement that had merely *matched* Brave would have been unproven; this one does not
+need that benefit of the doubt.
+
+Notably, TinySearch's recall@10 equals its recall@5 (28.7%): **every gold URL it found
+was in the top 5.** It is not scraping a hit out of a longer tail — its ranking is
+either right early or it misses.
+
+### Do not read the absolute numbers as "search is weak"
+
+Both arms score low in absolute terms, and that is the metric, not the engines. The gold
+URL is the page the pipeline *published*, and CyberPulse's source-first enrichment
+deliberately prefers the **primary document** reached via a citation over the coverage
+article a search engine surfaces. A primary advisory or vendor bulletin is often not a
+top-5 web-search hit for the story's headline. The valid signal here is the **relative**
+comparison on identical inputs; the absolute rate is a property of the gold bar.
+
+---
+
+## Bottom line
+
+| Seam | Verdict |
+|---|---|
+| **Search** | **Adopt.** recall@5 28.7% vs 13.3%, MRR 2.2×, zero errors, zero variance, free tier. Beats a baseline with home-field advantage. |
+| **Fetch** | **Adopt as a host-scoped fallback only.** Rescues half of native's failures (+11.5 pts overall) but cannot carry citations, so it can never replace `fetch_readable`. Needs its own timeout (p95 12.3 s vs native's 10 s cap). |
+
+A coherent combination: **TinySearch as the search provider, `fetch_readable` retained
+for pages it wins, TinyFetch as the fallback where native 403s or times out** — the
+search half is a clean win, the fetch half is a bounded repair.
+
+### Reproduction
+
+```
+set -a; . ~/.hermes/.env; . ~/repos/cyberpulse/.env; set +a
+export CYBERPULSE_PATH=~/repos/cyberpulse PYTHONPATH=src
+python -m tinytest gold        # freeze the corpus
+python -m tinytest fetch-ab    # ~200 native + 200 TinyFish fetches
+python -m tinytest search-ab   # 150 stories x 2 arms x 3 reps
+python -m tinytest analyze     # tables from stored raw responses only
+```
+
+`data/results/*` regenerates byte-identically from `data/raw/`; no metric is
+transcribed by hand.

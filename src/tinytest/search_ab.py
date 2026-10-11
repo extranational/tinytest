@@ -6,8 +6,10 @@ are skipped so a partial run resumes. Metrics are computed from these files only
 
 from __future__ import annotations
 
+import hashlib
 import json
 import random
+import re
 from pathlib import Path
 from typing import Callable
 
@@ -37,8 +39,23 @@ def draw_stories(gold_search_rows: list[dict], n: int = config.SEARCH_N,
                   key=lambda s: s["fingerprint"])
 
 
+def safe_name(fingerprint: str, max_len: int = 120) -> str:
+    """Filesystem-safe, collision-resistant, deterministic name for a fingerprint.
+
+    A raw fingerprint is NOT usable as a filename: CVE-roundup stories carry every id
+    in the name (`chrome-152-0-7977-75-vulns+CVE-2026-84323+CVE-...`), which exceeds the
+    255-byte limit and raises OSError(36) 'File name too long'. Observed on the host,
+    aborting both the runner and `analyze` (which builds the same path). The full
+    fingerprint is always stored inside the JSON record, so shortening the name loses
+    nothing; the 8-hex suffix keeps distinct fingerprints distinct even after truncation.
+    """
+    digest = hashlib.sha1(fingerprint.encode("utf-8")).hexdigest()[:8]
+    keep = re.sub(r"[^A-Za-z0-9._-]+", "-", fingerprint).strip("-")
+    return f"{keep[:max_len]}-{digest}" if keep else digest
+
+
 def raw_path(raw_dir: Path, fingerprint: str, arm: str, rep: int) -> Path:
-    return raw_dir / f"{fingerprint}.{arm}.rep{rep}.json"
+    return raw_dir / f"{safe_name(fingerprint)}.{arm}.rep{rep}.json"
 
 
 def run(
