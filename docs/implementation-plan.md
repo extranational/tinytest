@@ -11,12 +11,12 @@ Repo: `~/repos/tinytest` (uv-managed; run via `.venv/bin/python` or
 
 ## Ground rules for the implementer
 
-1. **Never modify `~/repos/rollout` or `~/repos/cyberpulse`.** They are read-only
+1. **Never modify `~/repos/cyberpulse` or `~/repos/rollout`.** They are read-only
    inputs. No edits, no commits, no config changes, no new files in either tree.
 2. The native extraction baseline is **vendored** into `src/tinytest/native.py`,
-   copied verbatim from Rollout at the pinned SHA recorded in
-   `src/tinytest/PINNED.md`. Do not `import` Rollout's modules at runtime — the
-   baseline must be reproducible after Rollout has moved on.
+   copied verbatim from CyberPulse at the pinned SHA recorded in
+   `src/tinytest/PINNED.md`. Do not `import` CyberPulse's modules at runtime — the
+   baseline must be reproducible after CyberPulse has moved on.
 3. No network calls other than: the two TinyFish endpoints, the Brave endpoint,
    and the target URLs being fetched. No package installs beyond
    `pyproject.toml`'s declared dependencies.
@@ -61,7 +61,7 @@ tests/
 **Tasks**
 
 1. `git init` the repo; commit the scaffold and both docs.
-2. Record Rollout's current `git rev-parse HEAD` and the sha256 of
+2. Record CyberPulse's current `git rev-parse HEAD` and the sha256 of
    `src/cyberpulse/pipeline/enrich.py` + `src/cyberpulse/pipeline/websearch.py` into
    `src/tinytest/PINNED.md`.
 3. Vendor into `native.py`, verbatim: `fetch_readable`'s fetch+extract path
@@ -69,21 +69,23 @@ tests/
    `websearch.search` (Brave request params). Strip only the `screen` call and the
    telemetry hooks; leave everything else byte-identical so the baseline is honest.
    Note every stripped line in a module docstring.
-4. `gold.py` builds the gold set from `~/repos/rollout/state/cyberpulse.db`
+4. `gold.py` builds the gold set from `~/repos/cyberpulse/state/cyberpulse.db`
    (`story_links`, `stories`) cross-checked against
-   `~/repos/vrsweb/content/rollout/*.mdx` frontmatter and body links; writes
+   `~/repos/vrsweb/content/cyber-hose/*.mdx` frontmatter and body links; writes
    `data/gold.jsonl` and `data/gold_summary.json` (counts by role, host, month).
-   Open the DB **read-only** (`?mode=ro`).
+   Open the DB **read-only** (`?mode=ro`). Paths come from `GOLD_DB` /
+   `GOLD_CONTENT_DIR` in `config.py` so the builder re-points at rollout (or any
+   sibling) with an env change only.
 5. Apply the §3.1 search-eligibility filter into `data/gold_search.jsonl`;
    `data/gold.jsonl` keeps everything for the fetch experiment.
 
 **Acceptance**
 
-- `uv run python -m tinytest golden` prints role/host/month counts matching the
-  numbers measured in `docs/ab-plan.md` §2 (862 links, 556 coverage, 306 original,
-  205 hosts, 528 stories) with any discrepancy explained.
+- `uv run python -m tinytest gold` prints role/host/month counts matching the numbers
+  in `docs/ab-plan.md` §2 (6,183 links; 5,233 coverage / 713 original / 237 seed;
+  6,152 distinct URLs; 475 hosts; 5,221 stories), with any discrepancy explained.
 - `data/gold.jsonl` is stable across two consecutive runs (byte-identical).
-- Rollout and cyberpulse report `git status --porcelain` clean.
+- CyberPulse and Rollout both report `git status --porcelain` clean.
 
 ---
 
@@ -195,6 +197,29 @@ Resolves the one empirical unknown that gates the fetch design.
 - Fresh clone + `uv sync` + `uv run python -m tinytest golden` works with no manual
   steps beyond providing `.env`.
 - The cyberpulse re-point is documented and requires only a DB path change.
+
+---
+
+## Where each milestone runs (execution split)
+
+The claude-harness container has egress allowlisted to `api.anthropic.com` **only**,
+and mounts only the project directory. It therefore cannot reach TinyFish, Brave or
+target URLs, and cannot read CyberPulse's DB. Split accordingly:
+
+| Milestone | Runs in | Why |
+|---|---|---|
+| M0 vendor + PINNED.md | container | pure local file work |
+| M0 gold builder **code + tests** | container | against a committed fixture |
+| M0 gold **extraction** | host (Hermes) | needs the CyberPulse DB |
+| M1 probe | host (Hermes) | needs egress + the API key |
+| M2 / M3 **implementation + unit tests** | container | fixtures, no live calls |
+| M2 / M3 **live runs** | host (Hermes) | needs egress + key |
+| M4 report regeneration | host (Hermes) | needs `data/raw/` |
+| M5 tests, lint, docs | container | local |
+
+The harness's acceptance criterion for M2/M3 is therefore **code + unit tests +
+a dry-run against fixtures**; the live numbers are produced by the host runner. The
+host runner is the same code, invoked outside the container.
 
 ---
 

@@ -1,17 +1,20 @@
 # tinytest
 
 Independent A/B evaluation harness for the **TinyFish** web infrastructure APIs
-(TinySearch / TinyFetch) against the fetch and search paths currently used by the
-Rollout news-digest pipeline.
+(TinySearch / TinyFetch) against the fetch and search paths used by the **CyberPulse**
+cybersecurity intel pipeline.
 
-This repo is deliberately **separate** from `~/repos/rollout` and
-`~/repos/cyberpulse`. It reads their published output and the native extraction
+This repo is deliberately **separate** from `~/repos/cyberpulse` and
+`~/repos/rollout`. It reads their published output and the native extraction
 routine as **frozen inputs**; it never modifies either repo.
+
+**This repository is public.** `.gitignore` keeps `data/` (raw third-party response
+bodies) and `.env` (API keys) out. Never commit either.
 
 ## The question
 
 > At the provider boundary — search result discovery and page fetch/extraction —
-> does TinyFish beat what Rollout uses today, on Rollout's own published workload?
+> does TinyFish beat what CyberPulse uses today, on CyberPulse's own published workload?
 
 Not: "do the digests come out better." Digest prose is non-reproducible (live
 feeds, a rolling item window, LLM sampling at temperature 0.3), so a digest-level
@@ -22,8 +25,8 @@ provider boundary only.
 
 | # | Experiment | Native arm | Candidate arm | Gold truth |
 |---|---|---|---|---|
-| 1 | Fetch | in-house `httpx` GET + BeautifulSoup extraction (vendored, pinned) | TinyFetch API | Rollout's published coverage URLs |
-| 2 | Search | Brave Search API | TinySearch API | the URL Rollout actually published for each story |
+| 1 | Fetch | in-house `httpx` GET + BeautifulSoup extraction (vendored, pinned) | TinyFetch API | CyberPulse's published coverage URLs |
+| 2 | Search | Brave Search API | TinySearch API | the URL CyberPulse actually published for each story |
 
 Full design, metrics, decision rules and threats to validity:
 [`docs/ab-plan.md`](docs/ab-plan.md).
@@ -34,12 +37,14 @@ Implementation breakdown for the coding harness:
 ## Status
 
 - [x] Repo scaffolded
-- [x] A/B plan documented
+- [x] A/B plan documented (cyberpulse corpus, D1 resolved)
 - [x] Implementation plan documented
-- [ ] TinyFish API key provisioned (blocker — see `docs/ab-plan.md` §8)
-- [ ] Harness implemented
-- [ ] Experiments run
-- [ ] Report written
+- [x] Decisions D1–D6 recorded (`docs/ab-plan.md` §8)
+- [ ] Execution split decided (`docs/ab-plan.md` §9) — container cannot run the experiments
+- [ ] TinyFish API key placed in `~/repos/tinytest/.env` (host runner only)
+- [ ] Harness implemented (M0–M3)
+- [ ] Experiments run (host)
+- [ ] `docs/findings.md` written
 
 ## Layout
 
