@@ -1,0 +1,23 @@
+# Ignore local data: gold-set extracts, raw API responses, results
+data/
+*.jsonl
+*.sqlite
+*.db
+
+# Secrets
+.env
+.env.*
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.uv/
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/
